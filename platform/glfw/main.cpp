@@ -2,10 +2,10 @@
 #include "glfw_renderer_frontend.hpp"
 #include "settings_json.hpp"
 
+#include <mbgl/mbgl.hpp>
 #include <mbgl/util/default_styles.hpp>
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/platform.hpp>
-#include <mbgl/util/default_thread_pool.hpp>
 #include <mbgl/util/string.hpp>
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/style/style.hpp>
@@ -36,6 +36,8 @@ void quit_handler(int) {
 }
 
 int main(int argc, char *argv[]) {
+    mbgl::Init();
+
     args::ArgumentParser argumentParser("Mapbox GL GLFW example");
     args::HelpFlag helpFlag(argumentParser, "help", "Display this help menu", {'h', "help"});
 
@@ -109,10 +111,9 @@ int main(int argc, char *argv[]) {
         mbgl::Log::Warning(mbgl::Event::Setup, "Application is offline. Press `O` to toggle online status.");
     }
 
-    mbgl::ThreadPool threadPool(4);
-    GLFWRendererFrontend rendererFrontend { std::make_unique<mbgl::Renderer>(view->getRendererBackend(), view->getPixelRatio(), threadPool), *view };
+    GLFWRendererFrontend rendererFrontend { std::make_unique<mbgl::Renderer>(view->getRendererBackend(), view->getPixelRatio()), *view };
 
-    mbgl::Map map(rendererFrontend, *view, threadPool,
+    mbgl::Map map(rendererFrontend, *view,
                   mbgl::MapOptions().withSize(view->getSize()).withPixelRatio(view->getPixelRatio()), resourceOptions);
 
     backend.setMap(&map);
@@ -199,5 +200,8 @@ int main(int argc, char *argv[]) {
                     settings.latitude, settings.longitude, settings.zoom, settings.bearing);
 
     view = nullptr;
+
+    mbgl::Cleanup();
+
     return 0;
 }
