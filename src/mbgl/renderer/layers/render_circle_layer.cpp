@@ -19,6 +19,21 @@ inline const style::CircleLayer::Impl& impl(const Immutable<style::Layer::Impl>&
     return static_cast<const style::CircleLayer::Impl&>(*impl);
 }
 
+namespace {
+
+template <typename Iterator>
+bool isCoveredByParent(const UnwrappedTileID& child, Iterator begin, Iterator end) {
+    for (auto it = begin; it != end; ++it) {
+        const auto& tileId = it->get().id;
+        if (child != tileId && child.isChildOf(tileId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
 RenderCircleLayer::RenderCircleLayer(Immutable<style::CircleLayer::Impl> _impl)
     : RenderLayer(makeMutable<CircleLayerProperties>(std::move(_impl))),
       unevaluated(impl(baseImpl).paint.untransitioned()) {
@@ -185,6 +200,33 @@ bool RenderCircleLayer::queryIntersectsFeature(
     }
 
     return false;
+}
+
+void RenderCircleLayer::setRenderTiles(RenderTiles tiles_, const TransformState& state) {
+    RenderLayer::setRenderTiles(std::move(tiles_), state);
+
+    // Tiles are sorted by tile id / zoom level, if first and last tiles are from different
+    // zoom levels, check whether tile vector contains parents covering children area.
+    // This might happen when map is panned (or zoomed) and missing tile is not yet loaded,
+    // thus, cached parent tile is used to cover missing area, therefore, loaded child tiles
+    // will be drawn together with the parent.
+
+    if (renderTiles.size() > 1 &&
+            renderTiles.front().get().id.canonical.z != renderTiles.back().get().id.canonical.z) {
+
+        RenderTiles filtered;
+        filtered.reserve(renderTiles.size());
+
+        auto lowerBound = renderTiles.end();
+        for (auto it = renderTiles.rbegin(); it != renderTiles.rend(); ++it) {
+            if (!isCoveredByParent(it->get().id, renderTiles.begin(), --lowerBound)) {
+                filtered.emplace_back(it->get());
+            }
+        }
+
+        std::reverse(filtered.begin(), filtered.end());
+        renderTiles = std::move(filtered);
+    }
 }
 
 } // namespace mbgl
