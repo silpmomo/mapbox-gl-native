@@ -2,12 +2,11 @@
 #import "NSExpression+MGLPrivateAdditions.h"
 
 #import "MGLTypes.h"
+#import "MGLGeometry_Private.h"
 #if TARGET_OS_IPHONE
     #import "UIColor+MGLAdditions.h"
-    #define MGLEdgeInsets UIEdgeInsets
 #else
     #import "NSColor+MGLAdditions.h"
-    #define MGLEdgeInsets NSEdgeInsets
 #endif
 #import "NSPredicate+MGLAdditions.h"
 #import "NSValue+MGLStyleAttributeAdditions.h"

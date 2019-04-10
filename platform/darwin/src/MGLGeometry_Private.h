@@ -97,14 +97,15 @@ NS_INLINE BOOL MGLLocationCoordinate2DIsValid(CLLocationCoordinate2D coordinate)
 }
 
 #if TARGET_OS_IPHONE
-NS_INLINE mbgl::EdgeInsets MGLEdgeInsetsFromNSEdgeInsets(UIEdgeInsets insets) {
-    return { insets.top, insets.left, insets.bottom, insets.right };
-}
+    #define MGLEdgeInsets UIEdgeInsets
+    #define MGLEdgeInsetsZero UIEdgeInsetsZero
 #else
-NS_INLINE mbgl::EdgeInsets MGLEdgeInsetsFromNSEdgeInsets(NSEdgeInsets insets) {
+    #define MGLEdgeInsets NSEdgeInsets
+    #define MGLEdgeInsetsZero NSEdgeInsetsZero
+#endif
+NS_INLINE mbgl::EdgeInsets MGLEdgeInsetsFromNSEdgeInsets(MGLEdgeInsets insets) {
     return { insets.top, insets.left, insets.bottom, insets.right };
 }
-#endif
 
 /** Returns MGLRadianCoordinate2D, converted from CLLocationCoordinate2D. */
 NS_INLINE MGLRadianCoordinate2D MGLRadianCoordinateFromLocationCoordinate(CLLocationCoordinate2D locationCoordinate) {
