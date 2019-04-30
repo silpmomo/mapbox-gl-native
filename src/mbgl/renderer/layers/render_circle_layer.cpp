@@ -21,15 +21,16 @@ inline const style::CircleLayer::Impl& impl(const Immutable<style::Layer::Impl>&
 
 namespace {
 
+// Returns pointer to the parent.
 template <typename Iterator>
-bool isCoveredByParent(const UnwrappedTileID& child, Iterator begin, Iterator end) {
+auto isCoveredByParent(const UnwrappedTileID& child, Iterator begin, Iterator end) -> RenderTile* {
     for (auto it = begin; it != end; ++it) {
         const auto& tileId = it->get().id;
         if (child != tileId && child.isChildOf(tileId)) {
-            return true;
+            return &it->get();
         }
     }
-    return false;
+    return nullptr;
 }
 
 } // namespace
@@ -71,6 +72,7 @@ void RenderCircleLayer::render(PaintParameters& parameters, RenderSource*) {
     if (parameters.pass == RenderPass::Opaque) {
         return;
     }
+    parameters.renderTileClippingMasks(renderTiles);
 
     for (const RenderTile& tile : renderTiles) {
         const LayerRenderData* renderData = tile.tile.getLayerRenderData(*baseImpl);
@@ -118,7 +120,7 @@ void RenderCircleLayer::render(PaintParameters& parameters, RenderSource*) {
             *parameters.renderPass,
             gfx::Triangles(),
             parameters.depthModeForSublayer(0, gfx::DepthMaskType::ReadOnly),
-            gfx::StencilMode::disabled(),
+            tile.needsClipping ? parameters.stencilModeForClipping(tile.id) : gfx::StencilMode::disabled(),
             parameters.colorModeForRenderPass(),
             gfx::CullFaceMode::disabled(),
             *bucket.indexBuffer,
@@ -202,30 +204,29 @@ bool RenderCircleLayer::queryIntersectsFeature(
     return false;
 }
 
-void RenderCircleLayer::setRenderTiles(RenderTiles tiles_, const TransformState& state) {
-    RenderLayer::setRenderTiles(std::move(tiles_), state);
+void RenderCircleLayer::setRenderTiles(RenderTiles tiles, const TransformState& state) {
+    RenderLayer::setRenderTiles(std::move(tiles), state);
 
     // Tiles are sorted by tile id / zoom level, if first and last tiles are from different
     // zoom levels, check whether tile vector contains parents covering children area.
     // This might happen when map is panned (or zoomed) and missing tile is not yet loaded,
     // thus, cached parent tile is used to cover missing area, therefore, loaded child tiles
     // will be drawn together with the parent.
-
     if (renderTiles.size() > 1 &&
-            renderTiles.front().get().id.canonical.z != renderTiles.back().get().id.canonical.z) {
-
-        RenderTiles filtered;
-        filtered.reserve(renderTiles.size());
+        renderTiles.front().get().id.canonical.z != renderTiles.back().get().id.canonical.z) {
 
         auto lowerBound = renderTiles.end();
         for (auto it = renderTiles.rbegin(); it != renderTiles.rend(); ++it) {
-            if (!isCoveredByParent(it->get().id, renderTiles.begin(), --lowerBound)) {
-                filtered.emplace_back(it->get());
+            RenderTile& child = it->get();
+            if (RenderTile* parent = isCoveredByParent(child.id, renderTiles.begin(), --lowerBound)) {
+                parent->needsClipping = true;
+                child.needsClipping = true;
             }
         }
-
-        std::reverse(filtered.begin(), filtered.end());
-        renderTiles = std::move(filtered);
+    } else {
+        for (RenderTile& tile : renderTiles) {
+            tile.needsClipping = false;
+        }
     }
 }
 

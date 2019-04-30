@@ -115,6 +115,8 @@ void PaintParameters::renderTileClippingMasks(const std::vector<std::reference_w
     const ClippingMaskProgram::Binders paintAttributeData(properties, 0);
 
     for (const RenderTile& renderTile : renderTiles) {
+        if (!renderTile.needsClipping) continue;
+
         const int32_t stencilID = nextStencilID++;
         tileClippingMaskIDs.emplace(renderTile.id, stencilID);
 
